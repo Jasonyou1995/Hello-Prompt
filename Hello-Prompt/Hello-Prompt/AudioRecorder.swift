@@ -1,7 +1,7 @@
 import Foundation
 import AVFoundation
 
-class AudioRecorder: NSObject, ObservableObject {
+class AudioRecorder: NSObject, ObservableObject, HotkeyActionProtocol {
     private var audioRecorder: AVAudioRecorder?
     private let openAIService: OpenAIServiceProtocol
     
@@ -23,6 +23,23 @@ class AudioRecorder: NSObject, ObservableObject {
         self.openAIService = openAIService
         super.init()
         print("🎤 AudioRecorder initialized with custom OpenAI service")
+    }
+    
+    // MARK: - HotkeyActionProtocol
+    func handleHotkeyPressed() {
+        let hotkeyId = UUID().uuidString.prefix(8)
+        print("⌨️ [\(hotkeyId)] Hotkey activated - toggling recording state")
+        print("⌨️ [\(hotkeyId)] Current recording state: \(isRecording)")
+        
+        DispatchQueue.main.async {
+            if self.isRecording {
+                print("⌨️ [\(hotkeyId)] Stopping recording via hotkey")
+                self.stopRecording()
+            } else {
+                print("⌨️ [\(hotkeyId)] Starting recording via hotkey")
+                self.startRecording()
+            }
+        }
     }
     
     func requestMicrophonePermission(completion: @escaping (Bool) -> Void) {
@@ -51,11 +68,18 @@ class AudioRecorder: NSObject, ObservableObject {
     }
     
     func startRecording() {
-        print("🎯 Starting audio recording...")
+        let sessionId = UUID().uuidString.prefix(8)
+        print("🎯 [\(sessionId)] Starting audio recording session")
+        print("🎯 [\(sessionId)] Current recording state: \(isRecording)")
         
         // Create recording URL
         let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let audioFilename = documentsPath.appendingPathComponent("recording-\(Date().timeIntervalSince1970).m4a")
+        let timestamp = Date().timeIntervalSince1970
+        let audioFilename = documentsPath.appendingPathComponent("recording-\(timestamp).m4a")
+        
+        print("📁 [\(sessionId)] Documents path: \(documentsPath.path)")
+        print("📁 [\(sessionId)] Audio filename: \(audioFilename.lastPathComponent)")
+        print("📁 [\(sessionId)] Full path: \(audioFilename.path)")
         
         // macOS-compatible audio settings
         let settings: [String: Any] = [
@@ -66,52 +90,109 @@ class AudioRecorder: NSObject, ObservableObject {
             AVEncoderBitRateKey: 128000
         ]
         
+        print("🎧 [\(sessionId)] Audio settings: \(settings)")
+        
         do {
+            let startTime = Date()
             audioRecorder = try AVAudioRecorder(url: audioFilename, settings: settings)
             audioRecorder?.delegate = self
             
+            print("🎧 [\(sessionId)] AVAudioRecorder created successfully")
+            print("🎧 [\(sessionId)] Delegate set to self")
+            
             // Prepare and start recording
+            let prepareTime = Date()
             if audioRecorder?.prepareToRecord() == true {
+                let prepareDuration = Date().timeIntervalSince(prepareTime)
+                print("✅ [\(sessionId)] Audio recorder prepared in \(String(format: "%.3f", prepareDuration))s")
+                
+                let recordTime = Date()
                 audioRecorder?.record()
+                let recordDuration = Date().timeIntervalSince(recordTime)
                 
                 DispatchQueue.main.async {
                     self.isRecording = true
                     self.recordingURL = audioFilename
                 }
                 
-                print("✅ Recording started successfully")
-                print("📁 Recording to: \(audioFilename.lastPathComponent)")
+                let totalStartupTime = Date().timeIntervalSince(startTime)
+                print("✅ [\(sessionId)] Recording started successfully in \(String(format: "%.3f", totalStartupTime))s")
+                print("📁 [\(sessionId)] Recording to: \(audioFilename.lastPathComponent)")
+                print("🗓 [\(sessionId)] Session timestamp: \(timestamp)")
             } else {
-                print("❌ Failed to prepare recording")
+                print("❌ [\(sessionId)] Failed to prepare recording")
+                print("❌ [\(sessionId)] Audio recorder state: \(audioRecorder?.isRecording ?? false)")
             }
             
         } catch {
-            print("❌ Failed to start recording: \(error)")
+            print("❌ [\(sessionId)] Failed to start recording: \(error.localizedDescription)")
+            print("❌ [\(sessionId)] Error domain: \((error as NSError).domain)")
+            print("❌ [\(sessionId)] Error code: \((error as NSError).code)")
         }
     }
     
     func stopRecording() {
-        print("🛑 Stopping audio recording...")
+        let sessionId = UUID().uuidString.prefix(8)
+        let stopTime = Date()
         
-        audioRecorder?.stop()
+        print("🛑 [\(sessionId)] Stopping audio recording session")
+        print("🛑 [\(sessionId)] Current recording state: \(isRecording)")
+        
+        guard let recorder = audioRecorder else {
+            print("⚠️ [\(sessionId)] No audio recorder instance found")
+            return
+        }
+        
+        print("🛑 [\(sessionId)] Recorder is currently recording: \(recorder.isRecording)")
+        
+        if recorder.isRecording {
+            recorder.stop()
+            let stopDuration = Date().timeIntervalSince(stopTime)
+            print("✅ [\(sessionId)] Audio recorder stopped in \(String(format: "%.3f", stopDuration))s")
+        } else {
+            print("⚠️ [\(sessionId)] Recorder was not in recording state")
+        }
         
         DispatchQueue.main.async {
             self.isRecording = false
         }
         
-        print("✅ Recording stopped")
+        print("✅ [\(sessionId)] Recording session completed")
         if let url = recordingURL {
-            print("💾 Recording saved to: \(url.lastPathComponent)")
-            // Start processing the audio after recording stops
-            Task {
-                await processRecording(url: url)
+            // Check if file was actually created
+            let fileExists = FileManager.default.fileExists(atPath: url.path)
+            print("💾 [\(sessionId)] Recording file exists: \(fileExists)")
+            
+            if fileExists {
+                do {
+                    let fileSize = try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int64 ?? 0
+                    print("💾 [\(sessionId)] Recording file size: \(fileSize) bytes")
+                    print("💾 [\(sessionId)] Recording saved to: \(url.lastPathComponent)")
+                    
+                    // Start processing the audio after recording stops
+                    Task {
+                        await processRecording(url: url)
+                    }
+                } catch {
+                    print("⚠️ [\(sessionId)] Could not read file attributes: \(error.localizedDescription)")
+                }
+            } else {
+                print("❌ [\(sessionId)] Recording file was not created at expected path")
             }
+        } else {
+            print("⚠️ [\(sessionId)] No recording URL available")
         }
     }
     
     // MARK: - Audio Processing
     @MainActor
     private func processRecording(url: URL) async {
+        let processingId = UUID().uuidString.prefix(8)
+        let startTime = Date()
+        
+        print("🚀 [\(processingId)] Starting audio processing pipeline")
+        print("🚀 [\(processingId)] Processing file: \(url.lastPathComponent)")
+        
         isProcessing = true
         transcriptionText = ""
         aiResponse = ""
@@ -119,25 +200,43 @@ class AudioRecorder: NSObject, ObservableObject {
         do {
             // Step 1: Transcribe audio
             processingStatus = "Transcribing audio..."
-            print("🎯 Starting audio transcription...")
+            let transcriptionStartTime = Date()
+            print("🎯 [\(processingId)] Step 1: Starting audio transcription")
             
-            let transcription = try await openAIService.transcribeAudio(from: url)
+            let transcription = try await openAIService.transcribeAudio(from: url, model: .whisper1)
             transcriptionText = transcription
             
-            print("📝 Transcription: \(transcription)")
+            let transcriptionDuration = Date().timeIntervalSince(transcriptionStartTime)
+            print("📝 [\(processingId)] Transcription completed in \(String(format: "%.2f", transcriptionDuration))s")
+            print("📝 [\(processingId)] Transcription length: \(transcription.count) characters")
+            print("📝 [\(processingId)] Transcription: \(transcription)")
             
             // Step 2: Process transcription with AI
             processingStatus = "Processing with AI..."
-            print("🤖 Processing transcription with AI...")
+            let aiStartTime = Date()
+            print("🤖 [\(processingId)] Step 2: Starting AI processing")
             
-            let response = try await openAIService.processTranscription(transcription)
+            let response = try await openAIService.processTranscription(transcription, model: .gpt4o)
             aiResponse = response
             
-            print("🎉 AI Response: \(response)")
+            let aiDuration = Date().timeIntervalSince(aiStartTime)
+            let totalDuration = Date().timeIntervalSince(startTime)
+            
+            print("🤖 [\(processingId)] AI processing completed in \(String(format: "%.2f", aiDuration))s")
+            print("🎉 [\(processingId)] Total processing time: \(String(format: "%.2f", totalDuration))s")
+            print("🎉 [\(processingId)] AI Response length: \(response.count) characters")
+            print("🎉 [\(processingId)] AI Response: \(response)")
             processingStatus = "Complete!"
             
         } catch {
-            print("❌ Processing failed: \(error.localizedDescription)")
+            let totalDuration = Date().timeIntervalSince(startTime)
+            print("❌ [\(processingId)] Processing failed after \(String(format: "%.2f", totalDuration))s")
+            print("❌ [\(processingId)] Error: \(error.localizedDescription)")
+            
+            if let openAIError = error as? OpenAIServiceError {
+                print("❌ [\(processingId)] OpenAI Error Type: \(openAIError)")
+            }
+            
             processingStatus = "Error: \(error.localizedDescription)"
             aiResponse = "Processing failed: \(error.localizedDescription)"
         }
@@ -146,6 +245,7 @@ class AudioRecorder: NSObject, ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
             self.isProcessing = false
             self.processingStatus = ""
+            print("🏁 [\(processingId)] Processing pipeline completed")
         }
     }
 }
