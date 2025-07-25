@@ -1,0 +1,35 @@
+# Xcode
+#
+# gitignore contributors: remember to keep this file platform-agnostic
+# gitignore developers: see https://git.io/v7eYc for developing this file
+
+### Xcode ###
+# General
+.DS_Store
+/build/
+/DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# CocoaPods
+/Pods/
+
+# Carthage
+/Carthage/Build/
+/Carthage/Checkouts/
+
+# Swift Package Manager
+/.swiftpm/
+/Packages/
+*.xcodeproj/project.xcworkspace
+*.xcodeproj/xcuserdata/
+
+# User-specific files
+*.xcuserdatad
+*.xcworkspace
+
+# Others
+*.moved-aside
+*.xcuserstate
