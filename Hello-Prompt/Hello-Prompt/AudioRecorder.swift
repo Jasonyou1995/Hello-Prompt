@@ -12,6 +12,14 @@ class AudioRecorder: NSObject, ObservableObject {
     @Published var isProcessing = false
     @Published var processingStatus: String = ""
     @Published var useMockService: Bool = OpenAIServiceFactory.useMockService
+    @Published var audioLevel: Float = 0.0
+    
+    // Auto-stop functionality
+    private var silenceTimer: Timer?
+    private var levelTimer: Timer?
+    private let silenceThreshold: Float = 0.02 // Threshold for silence detection
+    private let maxSilenceDuration: TimeInterval = 5.0 // 5 seconds of silence
+    private var lastAudioActivity: Date = Date()
     
     // Hotkey manager
     private var hotkeyManager: KeyboardShortcutsManager?
@@ -34,9 +42,6 @@ class AudioRecorder: NSObject, ObservableObject {
     func setUseMockService(_ useMock: Bool) {
         OpenAIServiceFactory.useMockService = useMock
         self.useMockService = useMock
-        // Note: This does not automatically re-initialize the openAIService.
-        // The service is set at initialization. A more robust implementation
-        // might involve a factory/provider pattern to switch services at runtime.
         print("🔧 Mock service toggled. Current state: \(useMock)")
     }
 
@@ -102,6 +107,12 @@ class AudioRecorder: NSObject, ObservableObject {
         print("🎯 [\(sessionId)] Starting audio recording session")
         print("🎯 [\(sessionId)] Current recording state: \(isRecording)")
         
+        // Reset previous results
+        transcriptionText = ""
+        aiResponse = ""
+        audioLevel = 0.0
+        lastAudioActivity = Date()
+        
         // Create recording URL
         let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         let timestamp = Date().timeIntervalSince1970
@@ -111,7 +122,7 @@ class AudioRecorder: NSObject, ObservableObject {
         print("📁 [\(sessionId)] Audio filename: \(audioFilename.lastPathComponent)")
         print("📁 [\(sessionId)] Full path: \(audioFilename.path)")
         
-        // macOS-compatible audio settings
+        // macOS-compatible audio settings with metering enabled
         let settings: [String: Any] = [
             AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
             AVSampleRateKey: 44100.0,
@@ -126,6 +137,7 @@ class AudioRecorder: NSObject, ObservableObject {
             let startTime = Date()
             audioRecorder = try AVAudioRecorder(url: audioFilename, settings: settings)
             audioRecorder?.delegate = self
+            audioRecorder?.isMeteringEnabled = true // Enable audio level monitoring
             
             print("🎧 [\(sessionId)] AVAudioRecorder created successfully")
             print("🎧 [\(sessionId)] Delegate set to self")
@@ -144,6 +156,10 @@ class AudioRecorder: NSObject, ObservableObject {
                     self.isRecording = true
                     self.recordingURL = audioFilename
                 }
+                
+                // Start monitoring audio levels and silence
+                startAudioLevelMonitoring()
+                startSilenceDetection()
                 
                 let totalStartupTime = Date().timeIntervalSince(startTime)
                 print("✅ [\(sessionId)] Recording started successfully in \(String(format: "%.3f", totalStartupTime))s")
@@ -168,6 +184,10 @@ class AudioRecorder: NSObject, ObservableObject {
         print("🛑 [\(sessionId)] Stopping audio recording session")
         print("🛑 [\(sessionId)] Current recording state: \(isRecording)")
         
+        // Stop monitoring
+        stopAudioLevelMonitoring()
+        stopSilenceDetection()
+        
         guard let recorder = audioRecorder else {
             print("⚠️ [\(sessionId)] No audio recorder instance found")
             return
@@ -185,6 +205,7 @@ class AudioRecorder: NSObject, ObservableObject {
         
         DispatchQueue.main.async {
             self.isRecording = false
+            self.audioLevel = 0.0
         }
         
         print("✅ [\(sessionId)] Recording session completed")
@@ -211,6 +232,63 @@ class AudioRecorder: NSObject, ObservableObject {
             }
         } else {
             print("⚠️ [\(sessionId)] No recording URL available")
+        }
+    }
+    
+    // MARK: - Audio Level Monitoring
+    private func startAudioLevelMonitoring() {
+        levelTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+            self?.updateAudioLevel()
+        }
+        print("🎚️ Audio level monitoring started")
+    }
+    
+    private func stopAudioLevelMonitoring() {
+        levelTimer?.invalidate()
+        levelTimer = nil
+        print("🎚️ Audio level monitoring stopped")
+    }
+    
+    private func updateAudioLevel() {
+        guard let recorder = audioRecorder, recorder.isRecording else { return }
+        
+        recorder.updateMeters()
+        let averagePower = recorder.averagePower(forChannel: 0)
+        let peakPower = recorder.peakPower(forChannel: 0)
+        
+        // Convert decibel to linear scale (0.0 to 1.0)
+        let level = pow(10.0, averagePower / 20.0)
+        
+        DispatchQueue.main.async {
+            self.audioLevel = max(0.0, min(1.0, level))
+        }
+        
+        // Check for audio activity (above silence threshold)
+        if level > silenceThreshold {
+            lastAudioActivity = Date()
+        }
+    }
+    
+    // MARK: - Silence Detection
+    private func startSilenceDetection() {
+        silenceTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            self?.checkForSilence()
+        }
+        print("🤫 Silence detection started (threshold: \(silenceThreshold), max duration: \(maxSilenceDuration)s)")
+    }
+    
+    private func stopSilenceDetection() {
+        silenceTimer?.invalidate()
+        silenceTimer = nil
+        print("🤫 Silence detection stopped")
+    }
+    
+    private func checkForSilence() {
+        let timeSinceLastActivity = Date().timeIntervalSince(lastAudioActivity)
+        
+        if timeSinceLastActivity >= maxSilenceDuration {
+            print("🤫 Silence detected for \(String(format: "%.1f", timeSinceLastActivity))s - auto-stopping recording")
+            stopRecording()
         }
     }
     
