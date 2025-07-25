@@ -52,12 +52,92 @@ struct ContentView: View {
                 .cornerRadius(10)
             }
             
+            // Processing Status
+            if audioRecorder.isProcessing {
+                VStack {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text(audioRecorder.processingStatus)
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                }
+                .padding()
+            }
+            
+            // Transcription Result
+            if !audioRecorder.transcriptionText.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Transcription:")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    ScrollView {
+                        Text(audioRecorder.transcriptionText)
+                            .font(.body)
+                            .padding()
+                            .background(Color.gray.opacity(0.1))
+                            .cornerRadius(8)
+                    }
+                    .frame(maxHeight: 100)
+                }
+                .padding(.horizontal)
+            }
+            
+            // AI Response
+            if !audioRecorder.aiResponse.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("AI Response:")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    ScrollView {
+                        Text(audioRecorder.aiResponse)
+                            .font(.body)
+                            .padding()
+                            .background(Color.blue.opacity(0.1))
+                            .cornerRadius(8)
+                    }
+                    .frame(maxHeight: 150)
+                }
+                .padding(.horizontal)
+            }
+            
             if let url = audioRecorder.recordingURL {
                 Text("Recording saved: \(url.lastPathComponent)")
                     .font(.caption)
                     .foregroundColor(.gray)
                     .padding(.top)
             }
+            
+            // Developer Testing Controls
+            VStack {
+                Text("Testing Controls")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+                
+                HStack {
+                    Button("Use Mock Service") {
+                        OpenAIServiceFactory.useMockService = true
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(OpenAIServiceFactory.useMockService ? Color.green : Color.gray)
+                    .foregroundColor(.white)
+                    .cornerRadius(6)
+                    .font(.caption)
+                    
+                    Button("Use Real Service") {
+                        OpenAIServiceFactory.useMockService = false
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(!OpenAIServiceFactory.useMockService ? Color.green : Color.gray)
+                    .foregroundColor(.white)
+                    .cornerRadius(6)
+                    .font(.caption)
+                }
+            }
+            .padding(.top)
         }
         .padding()
         .onAppear {

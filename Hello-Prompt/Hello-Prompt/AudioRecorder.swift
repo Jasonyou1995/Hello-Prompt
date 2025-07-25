@@ -3,13 +3,26 @@ import AVFoundation
 
 class AudioRecorder: NSObject, ObservableObject {
     private var audioRecorder: AVAudioRecorder?
+    private let openAIService: OpenAIServiceProtocol
     
     @Published var isRecording = false
     @Published var recordingURL: URL?
+    @Published var transcriptionText: String = ""
+    @Published var aiResponse: String = ""
+    @Published var isProcessing = false
+    @Published var processingStatus: String = ""
     
     override init() {
+        self.openAIService = OpenAIServiceFactory.createService()
         super.init()
         print("🎤 AudioRecorder initialized for macOS")
+    }
+    
+    // Initializer for dependency injection (useful for testing)
+    init(openAIService: OpenAIServiceProtocol) {
+        self.openAIService = openAIService
+        super.init()
+        print("🎤 AudioRecorder initialized with custom OpenAI service")
     }
     
     func requestMicrophonePermission(completion: @escaping (Bool) -> Void) {
@@ -89,6 +102,50 @@ class AudioRecorder: NSObject, ObservableObject {
         print("✅ Recording stopped")
         if let url = recordingURL {
             print("💾 Recording saved to: \(url.lastPathComponent)")
+            // Start processing the audio after recording stops
+            Task {
+                await processRecording(url: url)
+            }
+        }
+    }
+    
+    // MARK: - Audio Processing
+    @MainActor
+    private func processRecording(url: URL) async {
+        isProcessing = true
+        transcriptionText = ""
+        aiResponse = ""
+        
+        do {
+            // Step 1: Transcribe audio
+            processingStatus = "Transcribing audio..."
+            print("🎯 Starting audio transcription...")
+            
+            let transcription = try await openAIService.transcribeAudio(from: url)
+            transcriptionText = transcription
+            
+            print("📝 Transcription: \(transcription)")
+            
+            // Step 2: Process transcription with AI
+            processingStatus = "Processing with AI..."
+            print("🤖 Processing transcription with AI...")
+            
+            let response = try await openAIService.processTranscription(transcription)
+            aiResponse = response
+            
+            print("🎉 AI Response: \(response)")
+            processingStatus = "Complete!"
+            
+        } catch {
+            print("❌ Processing failed: \(error.localizedDescription)")
+            processingStatus = "Error: \(error.localizedDescription)"
+            aiResponse = "Processing failed: \(error.localizedDescription)"
+        }
+        
+        // Keep the processing status visible for a moment, then clear it
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            self.isProcessing = false
+            self.processingStatus = ""
         }
     }
 }
@@ -98,6 +155,12 @@ extension AudioRecorder: AVAudioRecorderDelegate {
     func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
         if flag {
             print("✅ Audio recording finished successfully")
+            // Process the recording if it was successful
+            if let url = recordingURL {
+                Task {
+                    await processRecording(url: url)
+                }
+            }
         } else {
             print("❌ Audio recording failed")
         }

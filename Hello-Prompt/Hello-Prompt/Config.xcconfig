@@ -1,0 +1,8 @@
+// Configuration file for Hello-Prompt
+// This file allows you to set environment variables for the project
+
+// OpenAI API Key - Set this to your actual API key
+// Example: OPENAI_API_KEY = sk-your-api-key-here
+OPENAI_API_KEY = 
+
+// Other configuration options can go here
