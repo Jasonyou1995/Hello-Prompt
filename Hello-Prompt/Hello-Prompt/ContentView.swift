@@ -7,6 +7,7 @@
 
 import SwiftUI
 import AVFoundation
+import KeyboardShortcuts
 
 struct ContentView: View {
     @StateObject private var audioRecorder = AudioRecorder()
@@ -108,6 +109,33 @@ struct ContentView: View {
                     .foregroundColor(.gray)
                     .padding(.top)
             }
+            
+            // Keyboard Shortcut Settings
+            VStack(spacing: 12) {
+                Text("Global Keyboard Shortcut")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                
+                KeyboardShortcuts.Recorder(
+                    "Toggle Recording:",
+                    name: .toggleRecording
+                )
+                .padding()
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(8)
+                
+                if audioRecorder.hasHotkeySet() {
+                    Text("Current shortcut: \(audioRecorder.getHotkeyDescription())")
+                        .font(.caption)
+                        .foregroundColor(.green)
+                } else {
+                    Text("No shortcut set - use the recorder above to set one")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
+            }
+            .padding(.horizontal)
+            .padding(.top)
             
             // Developer Testing Controls
             VStack {

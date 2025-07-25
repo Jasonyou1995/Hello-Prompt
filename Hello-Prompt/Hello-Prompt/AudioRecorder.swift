@@ -41,6 +41,15 @@ class AudioRecorder: NSObject, ObservableObject {
     }
 
     // MARK: - Hotkey Integration
+    private func setupHotkeyManager() {
+        hotkeyManager = KeyboardShortcutsManager()
+        hotkeyManager?.onToggleRecording = { [weak self] in
+            self?.toggleRecording()
+        }
+        hotkeyManager?.startListening()
+        print("🎹 AudioRecorder: Hotkey manager setup completed")
+    }
+    
     func toggleRecording() {
         let hotkeyId = UUID().uuidString.prefix(8)
         print("⌨️ [\(hotkeyId)] Hotkey activated - toggling recording state")
@@ -53,6 +62,14 @@ class AudioRecorder: NSObject, ObservableObject {
             print("⌨️ [\(hotkeyId)] Starting recording via hotkey")
             startRecording()
         }
+    }
+    
+    func getHotkeyDescription() -> String {
+        return hotkeyManager?.getCurrentShortcutDescription() ?? "No shortcut set"
+    }
+    
+    func hasHotkeySet() -> Bool {
+        return hotkeyManager?.hasShortcutSet() ?? false
     }
     
     func requestMicrophonePermission(completion: @escaping (Bool) -> Void) {

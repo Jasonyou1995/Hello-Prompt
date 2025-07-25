@@ -17,6 +17,10 @@ xcuserdata/
 *.pbxuser
 *.xcworkspace/xcuserdata/
 
+# Specific user state file that keeps getting modified
+Hello-Prompt.xcodeproj/project.xcworkspace/xcuserdata/jasony.xcuserdatad/UserInterfaceState.xcuserstate
+**/UserInterfaceState.xcuserstate
+
 # Xcode build and derived data
 build/
 DerivedData/
@@ -42,6 +46,19 @@ Package.resolved
 *password*
 *.env
 .env.*
+
+# API Keys and Configuration (prevent accidental commit of secrets)
+Config.xcconfig
+**/Config.xcconfig
+*.xcconfig
+!Config-Template.xcconfig
+!**/Config-Template.xcconfig
+
+# OpenAI and other API keys
+*api*key*
+*API*KEY*
+sk-*
+pk-*
 
 # Code signing and certificates
 exportOptions.plist
@@ -71,7 +88,3 @@ logs/
 
 # Provisioning profiles
 *.provisionprofile
-**/Config.xcconfig
-Hello-Prompt/Hello-Prompt/Config.xcconfig
-Hello-Prompt/Hello-Prompt/Config.xcconfig
-Hello-Prompt/Hello-Prompt.xcodeproj/project.xcworkspace/xcuserdata/jasony.xcuserdatad/UserInterfaceState.xcuserstate
