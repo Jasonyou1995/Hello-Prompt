@@ -10,7 +10,6 @@ import AVFoundation
 
 struct ContentView: View {
     @StateObject private var audioRecorder = AudioRecorder()
-    @StateObject private var hotkeyManager = NativeHotkeyManager()
     @State private var hasPermission = false
     
     var body: some View {
@@ -110,41 +109,6 @@ struct ContentView: View {
                     .padding(.top)
             }
             
-            // Hotkey Controls
-            VStack(spacing: 8) {
-                Text("Global Hotkey")
-                    .font(.headline)
-                    .foregroundColor(.primary)
-                
-                Text(hotkeyManager.currentHotkey.description)
-                    .font(.body)
-                    .padding(8)
-                    .background(Color.gray.opacity(0.1))
-                    .cornerRadius(6)
-                
-                Text("Status: \(hotkeyManager.registrationStatus)")
-                    .font(.caption)
-                    .foregroundColor(hotkeyManager.registrationStatus.contains("Active") ? .green : .orange)
-                
-                HStack {
-                    Button(hotkeyManager.registrationStatus.contains("Active") ? "Disable Hotkey" : "Enable Hotkey") {
-                        if hotkeyManager.registrationStatus.contains("Active") {
-                            hotkeyManager.unregisterHotkey()
-                        } else {
-                            hotkeyManager.registerHotkey()
-                        }
-                    }
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(hotkeyManager.registrationStatus.contains("Active") ? Color.red : Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(6)
-                    .font(.caption)
-                }
-            }
-            .padding(.horizontal)
-            .padding(.top)
-            
             // Developer Testing Controls
             VStack {
                 Text("Testing Controls")
@@ -153,21 +117,21 @@ struct ContentView: View {
                 
                 HStack {
                     Button("Use Mock Service") {
-                        OpenAIServiceFactory.useMockService = true
+                        audioRecorder.setUseMockService(true)
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(OpenAIServiceFactory.useMockService ? Color.green : Color.gray)
+                    .background(audioRecorder.useMockService ? Color.green : Color.gray)
                     .foregroundColor(.white)
                     .cornerRadius(6)
                     .font(.caption)
                     
                     Button("Use Real Service") {
-                        OpenAIServiceFactory.useMockService = false
+                        audioRecorder.setUseMockService(false)
                     }
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(!OpenAIServiceFactory.useMockService ? Color.green : Color.gray)
+                    .background(!audioRecorder.useMockService ? Color.green : Color.gray)
                     .foregroundColor(.white)
                     .cornerRadius(6)
                     .font(.caption)
@@ -181,11 +145,6 @@ struct ContentView: View {
             audioRecorder.requestMicrophonePermission { granted in
                 hasPermission = granted
             }
-            
-            // Set up hotkey manager
-            print("🎹 Setting up hotkey manager delegate")
-            hotkeyManager.delegate = audioRecorder
-            hotkeyManager.registerHotkey()
         }
     }
 }

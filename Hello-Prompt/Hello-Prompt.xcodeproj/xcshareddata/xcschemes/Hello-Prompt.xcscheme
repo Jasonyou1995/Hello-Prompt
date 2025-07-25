@@ -74,13 +74,6 @@
             ReferencedContainer = "container:Hello-Prompt.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
-      <EnvironmentVariables>
-         <EnvironmentVariable
-            key = "OPENAI_API_KEY"
-            value = "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"
-            isEnabled = "YES">
-         </EnvironmentVariable>
-      </EnvironmentVariables>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"

@@ -1,7 +1,7 @@
 import Foundation
 import AVFoundation
 
-class AudioRecorder: NSObject, ObservableObject, HotkeyActionProtocol {
+class AudioRecorder: NSObject, ObservableObject {
     private var audioRecorder: AVAudioRecorder?
     private let openAIService: OpenAIServiceProtocol
     
@@ -11,11 +11,16 @@ class AudioRecorder: NSObject, ObservableObject, HotkeyActionProtocol {
     @Published var aiResponse: String = ""
     @Published var isProcessing = false
     @Published var processingStatus: String = ""
+    @Published var useMockService: Bool = OpenAIServiceFactory.useMockService
     
+    // Hotkey manager
+    private var hotkeyManager: KeyboardShortcutsManager?
+
     override init() {
         self.openAIService = OpenAIServiceFactory.createService()
         super.init()
         print("🎤 AudioRecorder initialized for macOS")
+        setupHotkeyManager()
     }
     
     // Initializer for dependency injection (useful for testing)
@@ -23,22 +28,30 @@ class AudioRecorder: NSObject, ObservableObject, HotkeyActionProtocol {
         self.openAIService = openAIService
         super.init()
         print("🎤 AudioRecorder initialized with custom OpenAI service")
+        setupHotkeyManager()
     }
-    
-    // MARK: - HotkeyActionProtocol
-    func handleHotkeyPressed() {
+
+    func setUseMockService(_ useMock: Bool) {
+        OpenAIServiceFactory.useMockService = useMock
+        self.useMockService = useMock
+        // Note: This does not automatically re-initialize the openAIService.
+        // The service is set at initialization. A more robust implementation
+        // might involve a factory/provider pattern to switch services at runtime.
+        print("🔧 Mock service toggled. Current state: \(useMock)")
+    }
+
+    // MARK: - Hotkey Integration
+    func toggleRecording() {
         let hotkeyId = UUID().uuidString.prefix(8)
         print("⌨️ [\(hotkeyId)] Hotkey activated - toggling recording state")
         print("⌨️ [\(hotkeyId)] Current recording state: \(isRecording)")
         
-        DispatchQueue.main.async {
-            if self.isRecording {
-                print("⌨️ [\(hotkeyId)] Stopping recording via hotkey")
-                self.stopRecording()
-            } else {
-                print("⌨️ [\(hotkeyId)] Starting recording via hotkey")
-                self.startRecording()
-            }
+        if isRecording {
+            print("⌨️ [\(hotkeyId)] Stopping recording via hotkey")
+            stopRecording()
+        } else {
+            print("⌨️ [\(hotkeyId)] Starting recording via hotkey")
+            startRecording()
         }
     }
     
