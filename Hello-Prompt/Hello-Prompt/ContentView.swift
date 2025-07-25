@@ -1,0 +1,182 @@
+//
+//  ContentView.swift
+//  Hello-Prompt
+//
+//  Created by Jason Y on 25/7/2025.
+//
+
+import SwiftUI
+import AVFoundation
+import KeyboardShortcuts
+
+struct ContentView: View {
+    @StateObject private var audioRecorder = AudioRecorder()
+    @State private var hasPermission = false
+    
+    var body: some View {
+        VStack(spacing: 20) {
+            Image(systemName: audioRecorder.isRecording ? "mic.fill" : "mic")
+                .imageScale(.large)
+                .foregroundStyle(audioRecorder.isRecording ? .red : .blue)
+                .font(.system(size: 50))
+            
+            Text(audioRecorder.isRecording ? "Recording..." : "Ready to Record")
+                .font(.headline)
+                .foregroundColor(audioRecorder.isRecording ? .red : .primary)
+            
+            if hasPermission {
+                Button(action: {
+                    if audioRecorder.isRecording {
+                        audioRecorder.stopRecording()
+                    } else {
+                        audioRecorder.startRecording()
+                    }
+                }) {
+                    HStack {
+                        Image(systemName: audioRecorder.isRecording ? "stop.circle.fill" : "record.circle")
+                        Text(audioRecorder.isRecording ? "Stop Recording" : "Start Recording")
+                    }
+                    .padding()
+                    .background(audioRecorder.isRecording ? Color.red : Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+                }
+            } else {
+                Button("Request Microphone Permission") {
+                    audioRecorder.requestMicrophonePermission { granted in
+                        hasPermission = granted
+                    }
+                }
+                .padding()
+                .background(Color.orange)
+                .foregroundColor(.white)
+                .cornerRadius(10)
+            }
+            
+            // Processing Status
+            if audioRecorder.isProcessing {
+                VStack {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text(audioRecorder.processingStatus)
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                }
+                .padding()
+            }
+            
+            // Transcription Result
+            if !audioRecorder.transcriptionText.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Transcription:")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    ScrollView {
+                        Text(audioRecorder.transcriptionText)
+                            .font(.body)
+                            .padding()
+                            .background(Color.gray.opacity(0.1))
+                            .cornerRadius(8)
+                    }
+                    .frame(maxHeight: 100)
+                }
+                .padding(.horizontal)
+            }
+            
+            // AI Response
+            if !audioRecorder.aiResponse.isEmpty {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("AI Response:")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    ScrollView {
+                        Text(audioRecorder.aiResponse)
+                            .font(.body)
+                            .padding()
+                            .background(Color.blue.opacity(0.1))
+                            .cornerRadius(8)
+                    }
+                    .frame(maxHeight: 150)
+                }
+                .padding(.horizontal)
+            }
+            
+            if let url = audioRecorder.recordingURL {
+                Text("Recording saved: \(url.lastPathComponent)")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+                    .padding(.top)
+            }
+            
+            // Keyboard Shortcut Settings
+            VStack(spacing: 12) {
+                Text("Global Keyboard Shortcut")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                
+                KeyboardShortcuts.Recorder(
+                    "Toggle Recording:",
+                    name: .toggleRecording
+                )
+                .padding()
+                .background(Color.gray.opacity(0.1))
+                .cornerRadius(8)
+                
+                if audioRecorder.hasHotkeySet() {
+                    Text("Current shortcut: \(audioRecorder.getHotkeyDescription())")
+                        .font(.caption)
+                        .foregroundColor(.green)
+                } else {
+                    Text("No shortcut set - use the recorder above to set one")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
+            }
+            .padding(.horizontal)
+            .padding(.top)
+            
+            // Developer Testing Controls
+            VStack {
+                Text("Testing Controls")
+                    .font(.caption)
+                    .foregroundColor(.gray)
+                
+                HStack {
+                    Button("Use Mock Service") {
+                        audioRecorder.setUseMockService(true)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(audioRecorder.useMockService ? Color.green : Color.gray)
+                    .foregroundColor(.white)
+                    .cornerRadius(6)
+                    .font(.caption)
+                    
+                    Button("Use Real Service") {
+                        audioRecorder.setUseMockService(false)
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(!audioRecorder.useMockService ? Color.green : Color.gray)
+                    .foregroundColor(.white)
+                    .cornerRadius(6)
+                    .font(.caption)
+                }
+            }
+            .padding(.top)
+        }
+        .padding()
+        .onAppear {
+            print("🎬 ContentView appeared - checking microphone permissions")
+            audioRecorder.requestMicrophonePermission { granted in
+                hasPermission = granted
+            }
+        }
+    }
+}
+
+#Preview {
+    ContentView()
+}

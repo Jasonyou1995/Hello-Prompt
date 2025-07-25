@@ -1,0 +1,7 @@
+// Configuration Template for Hello-Prompt
+// Copy this file to Config.xcconfig and set your values
+
+// OpenAI API Key - Get this from https://platform.openai.com/api-keys
+OPENAI_API_KEY = sk-your-api-key-here
+
+// Other configuration options can go here
